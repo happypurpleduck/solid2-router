@@ -1,0 +1,66 @@
+{
+  "name": "@purpleduck/solid2-router",
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    "./context": {
+      "types": "./src/context.ts",
+      "import": "./dist/context.mjs"
+    },
+    "./link": {
+      "types": "./src/link.tsx",
+      "import": "./dist/link.mjs"
+    },
+    "./navigate": {
+      "types": "./src/navigate.ts",
+      "import": "./dist/navigate.mjs"
+    },
+    "./outlet": {
+      "types": "./src/outlet.tsx",
+      "import": "./dist/outlet.mjs"
+    },
+    "./path": {
+      "types": "./src/path.ts",
+      "import": "./dist/path.mjs"
+    },
+    "./route": {
+      "types": "./src/route.ts",
+      "import": "./dist/route.mjs"
+    },
+    "./router": {
+      "types": "./src/router.tsx",
+      "import": "./dist/router.mjs"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "import": "./dist/types.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "build:dev": "bun run build && bun pm pack --filename dev.tgz"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.1.0"
+  },
+  "peerDependencies": {
+    "@solidjs/web": "2.0.0-beta.4",
+    "solid-js": "2.0.0-beta.4"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^7.7.3",
+    "@babel/core": "^7.29.0",
+    "@babel/preset-typescript": "^7.28.5",
+    "@purpleduck/bun-plugin-solid2": "https://github.com/happypurpleduck/bun-plugin-solid2",
+    "@rollup/plugin-babel": "^7.0.0",
+    "babel-preset-solid": "^2.0.0-beta.4",
+    "bun-types": "1.3.11",
+    "eslint": "^10.1.0",
+    "tsdown": "^0.21.4",
+    "typescript": "^6.0.2",
+    "valibot": "^1.3.1"
+  }
+}

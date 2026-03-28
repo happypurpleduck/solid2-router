@@ -1,0 +1,3 @@
+[serve.static]
+plugins = [ "@purpleduck/bun-plugin-solid2", ]
+env = "BUN_PUBLIC_*"
