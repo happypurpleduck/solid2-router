@@ -1,4 +1,4 @@
-import type { Component } from "solid-js";
+import type { Component, JSX } from "solid-js";
 import type { Route } from "./route.ts";
 import type { AnyRoute, AnyRouter, RouteLike, RoutePath, RouteSchema } from "./types.ts";
 import { createMemo, createSignal, DEV, onSettled } from "solid-js";
@@ -43,70 +43,72 @@ export class Router<const T extends AnyRoute[] = [], const P extends string = ""
 		return this;
 	}
 
-	Render() {
-		onSettled(() => {
-			const handler = (event: NavigateEvent) => {
-				setLocation(parsePath(event.destination.url));
-			};
+	get Render(): () => JSX.Element {
+		return () => {
+			onSettled(() => {
+				const handler = (event: NavigateEvent) => {
+					setLocation(parsePath(event.destination.url));
+				};
 
-			navigation.addEventListener("navigate", handler);
+				navigation.addEventListener("navigate", handler);
 
-			return () => {
-				navigation.removeEventListener("navigate", handler);
-			};
-		});
+				return () => {
+					navigation.removeEventListener("navigate", handler);
+				};
+			});
 
-		// memo not needed?
-		const routes = createMemo(() => {
-			let routes: AnyRoute[] = [];
-			const l = location();
+			// memo not needed?
+			const routes = createMemo(() => {
+				let routes: AnyRoute[] = [];
+				const l = location();
 
-			const slices = l.pathname.split("/");
-			slices.shift();
+				const slices = l.pathname.split("/");
+				slices.shift();
 
-			const firstSlice = slices.shift() ?? "";
-			const root = this.children.find(c => c.normalizedPath === firstSlice);
-			// TODO: support catch-all (404)
-			if (!root) {
+				const firstSlice = slices.shift() ?? "";
+				const root = this.children.find(c => c.normalizedPath === firstSlice);
+				// TODO: support catch-all (404)
+				if (!root) {
+					return routes;
+				}
+
+				routes.push(root);
+
+				while (slices.length) {
+					const segment = slices.shift()!;
+					const children = routes.at(-1)?.children;
+
+					const found = children?.find((c) => {
+						return c.normalizedPath === segment;
+					}) ?? children?.find((c) => {
+						// TODO: should add a in dev mode warning to disallow multiple $ routes on the same level.
+						return c.normalizedPath.startsWith("$");
+					});
+
+					if (found) {
+						routes.push(found);
+					}
+					else {
+						routes = [];
+						break;
+					}
+				}
+
 				return routes;
-			}
+			});
 
-			routes.push(root);
-
-			while (slices.length) {
-				const segment = slices.shift()!;
-				const children = routes.at(-1)?.children;
-
-				const found = children?.find((c) => {
-					return c.normalizedPath === segment;
-				}) ?? children?.find((c) => {
-					// TODO: should add a in dev mode warning to disallow multiple $ routes on the same level.
-					return c.normalizedPath.startsWith("$");
-				});
-
-				if (found) {
-					routes.push(found);
-				}
-				else {
-					routes = [];
-					break;
-				}
-			}
-
-			return routes;
-		});
-
-		return (
-			<RouteContext
-				value={{
-					routes,
-					params: {},
-					depth: 0,
-				}}
-			>
-				<Outlet />
-			</RouteContext>
-		);
+			return (
+				<RouteContext
+					value={{
+						routes,
+						params: {},
+						depth: 0,
+					}}
+				>
+					<Outlet />
+				</RouteContext>
+			);
+		};
 	}
 }
 

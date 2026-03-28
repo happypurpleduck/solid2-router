@@ -18,6 +18,7 @@ export interface RouteSchema {
 	search?: StandardSchemaV1;
 }
 
+export type AnyRouter = Router<AnyRoute[], "">;
 export type AnyRoute = Route<any, string, any, RouteSchema, AnyRoute[]>;
 
 export interface Location {
@@ -64,5 +65,3 @@ type NormalizeParentPath<TPath extends string> = TPath extends `/${string}/`
 export type RoutePath<TPath extends string, TParent extends RouteLike | null> = TParent extends RouteLike
 	? `${NormalizeParentPath<TParent["~types"]["path"]>}${NormalizedRoutePath<TPath>}`
 	: TPath;
-
-export type AnyRouter = Router<AnyRoute[], "">;

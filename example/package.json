@@ -1,20 +1,22 @@
 {
-  "name": "@purpleduck/bun-plugin-solid2-example",
-  "type": "module",
-  "version": "0.0.0",
-  "scripts": {
-    "start": "bun run --hot serve.ts",
-    "dev": "bun run --hot serve.ts",
-    "test": "playwright test"
-  },
-  "dependencies": {
-    "@purpleduck/bun-plugin-solid2": "https://github.com/happypurpleduck/bun-plugin-solid2",
-    "@purpleduck/solid2-router": "file:../dev.tgz",
-    "@solidjs/web": "2.0.0-beta.4",
-    "solid-js": "2.0.0-beta.4",
-    "valibot": "^1.3.1"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.2"
-  }
+	"name": "@purpleduck/bun-plugin-solid2-example",
+	"type": "module",
+	"version": "0.0.0",
+	"scripts": {
+		"start": "bun run --hot serve.ts",
+		"test": "playwright test",
+		"prestart": "cd .. && bun run build && bun pm pack --filename pack.tgz && cd - && bun install",
+		"pretest": "cd .. && bun run build && bun pm pack --filename pack.tgz && cd - && bun install"
+	},
+	"dependencies": {
+		"@purpleduck/bun-plugin-solid2": "https://github.com/happypurpleduck/bun-plugin-solid2",
+		"@purpleduck/solid2-router": "file:../pack.tgz",
+		"@solidjs/web": "2.0.0-beta.4",
+		"solid-js": "2.0.0-beta.4",
+		"valibot": "^1.3.1"
+	},
+	"devDependencies": {
+		"bun-types": "latest",
+		"typescript": "^6.0.2"
+	}
 }
