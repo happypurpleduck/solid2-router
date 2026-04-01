@@ -1,39 +1,45 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Component } from "solid-js";
-import type { AnyRoute, PathParams, Prettify, RouteLike, RoutePath, RouteSchema } from "./types.ts";
+import type { AnyRoute, PathParams, RouteLike, RouteLikeContext, RoutePath, RouteSchema } from "./types.ts";
 import { DEV } from "solid-js";
+import { Router } from "./router.tsx";
+
+type RouteComponent<T extends RouteLikeContext> = Component<{
+	route: {
+		params: T["params"];
+		search: T["search"]["out"];
+	};
+}>;
 
 export class Route<
-	const TComponent extends Component<any> = Component,
 	const TPath extends string = string,
-	const TParent extends RouteLike | null = null,
+	const TParent extends RouteLike | null = any,
 	const TSchema extends RouteSchema = RouteSchema,
 	const TChildren extends AnyRoute[] = [],
-> implements RouteLike {
+	const T extends RouteLikeContext = {
+		parent: TParent;
+		path: RoutePath<TPath, TParent>;
+		children: TChildren;
+
+		// TODO should not need to parse parent's again
+		params: PathParams<TPath>;
+		search: TSchema extends { search: infer TSearch extends StandardSchemaV1 }
+			? {
+					in: StandardSchemaV1.InferInput<TSearch>;
+					out: StandardSchemaV1.InferOutput<TSearch>;
+				} : {
+					in: any;
+					out: any;
+				};
+	},
+> {
 	readonly path: TPath;
-	readonly Component?: TComponent;
+	readonly Component?: RouteComponent<T>;
 	readonly schema?: TSchema;
 	readonly children: TChildren;
 	readonly getParent?: () => TParent;
 
-	declare "~types": Prettify<
-		& (TSchema extends { search: infer TSearch extends StandardSchemaV1 } ? {
-			search: {
-				in: StandardSchemaV1.InferInput<TSearch>;
-				out: StandardSchemaV1.InferOutput<TSearch>;
-			};
-		} : unknown)
-		& {
-			props: TComponent extends Component<infer TProps> ? TProps : never;
-			component: TComponent;
-			parent: TParent;
-			path: RoutePath<TPath, TParent>;
-			children: TChildren;
-
-			// TODO should not need to parse parent's again
-			params: PathParams<TPath> & (TParent extends RouteLike ? PathParams<TParent["~types"]["path"]> : unknown);
-		}
-	>;
+	declare "~types": T;
 
 	constructor({
 		path,
@@ -42,7 +48,7 @@ export class Route<
 		getParent,
 	}: {
 		path: TPath;
-		component: TComponent;
+		component?: RouteComponent<T>;
 		schema?: TSchema;
 		getParent?: () => TParent;
 	}) {
@@ -55,7 +61,7 @@ export class Route<
 		this.children = [];
 	}
 
-	addChildren<const TTChildren extends ReadonlyArray<AnyRoute>>(children: TTChildren): Route<TComponent, TPath, TParent, TSchema, [...TChildren, ...TTChildren]> {
+	addChildren<const TTChildren extends ReadonlyArray<AnyRoute>>(children: TTChildren): Route<TPath, TParent, TSchema, [...TChildren, ...TTChildren]> {
 		// @ts-expect-error known
 		this.children = this.children.concat(children);
 		if (DEV) {
@@ -70,6 +76,16 @@ export class Route<
 				}
 			}
 		}
+
+		let parent: RouteLike | null = this.getParent?.() ?? null;
+		while (parent instanceof Route) {
+			parent = parent.getParent?.() ?? null;
+		}
+
+		if (parent instanceof Router) {
+			parent.setDirty(true);
+		}
+
 		// @ts-expect-error known
 		return this;
 	}

@@ -5,13 +5,45 @@ import { Outlet } from "../../src/outlet";
 import { Route } from "../../src/route";
 import { Router } from "../../src/router";
 
-const rootRoute = new Router("/");
+export const router = new Router({
+	path: "/",
+	notFoundComponent: function NotFound() {
+		return <h1>Not Found</h1>;
+	},
+});
 
-const indexRoute = new Route({
+const rootRoute = new Route({
+	getParent: () => router,
+	path: "",
+	component: function RootRoute() {
+		console.info("root");
+		return (
+			<>
+				<nav style="display: flex; gap: 1rem; padding: 1rem;">
+					<Link to="/">Home</Link>
+					<Link to="/posts" search={{}}>Posts</Link>
+					<Link to="/about">About</Link>
+				</nav>
+
+				<Outlet />
+			</>
+		);
+	},
+});
+
+export const indexRoute = new Route({
 	getParent: () => rootRoute,
 	path: "/",
-	component: function Page1() {
+	component: function IndexPage() {
 		return <div>Index Page</div>;
+	},
+});
+
+const aboutRoute = new Route({
+	getParent: () => rootRoute,
+	path: "about",
+	component: function AboutPage() {
+		return <div>About Page</div>;
 	},
 });
 
@@ -24,7 +56,8 @@ const postsRoute = new Route({
 			sort: v.optional(v.string()),
 		}),
 	},
-	component: function Page2() {
+	component: function PostsPage() {
+		console.info("posts");
 		const [count, setCount] = createSignal(0);
 
 		return (
@@ -33,8 +66,25 @@ const postsRoute = new Route({
 				<button onClick={() => setCount(count() + 1)}>
 					{count()}
 				</button>
-				<Link to="/posts/list">list</Link>
-				<Link to="/posts/$postId">id</Link>
+				<div style="display: flex; gap: 1rem; padding: 1rem;">
+					<Link to="/posts/list">list</Link>
+					<Link
+						to="/posts/$postId"
+						params={{
+							postId: "1",
+						}}
+					>
+						id:1
+					</Link>
+					<Link
+						to="/posts/$postId"
+						params={{
+							postId: "2",
+						}}
+					>
+						id:2
+					</Link>
+				</div>
 				<Outlet />
 			</div>
 		);
@@ -49,7 +99,8 @@ const postsListRoute = new Route({
 	// 	page: v.optional(v.number(), 1),
 	// 	sort: v.optional(v.string(), "date"),
 	// }),
-	component: function Page3() {
+	component: function PostsListPage() {
+		console.info("posts list");
 		return <div>List Page</div>;
 	},
 });
@@ -57,44 +108,33 @@ const postsListRoute = new Route({
 const postDetailRoute = new Route({
 	getParent: () => postsRoute,
 	path: "/$postId/",
-	component: function Page4() {
-		return <div>Page 4</div>;
+	component: function PostDetailPage(props) {
+		return (
+			<div>
+				Post Detail Page
+				{props.route.params.postId}
+			</div>
+		);
 	},
 });
 
-const aboutRoute = new Route({
-	getParent: () => rootRoute,
-	path: "about",
-	component: function Page4() {
-		return <div>Page 4</div>;
-	},
-});
-
-const routes = rootRoute.addChildren([
-	indexRoute,
-	postsRoute
-		.addChildren([
-			postsListRoute,
-			postDetailRoute,
-		]),
-	aboutRoute,
+export const routes = router.addChildren([
+	rootRoute.addChildren([
+		indexRoute,
+		aboutRoute,
+		postsRoute
+			.addChildren([
+				postsListRoute,
+				postDetailRoute,
+			]),
+	]),
 ]);
 
 export function App() {
-	return (
-		<>
-			<nav style="display: flex; gap: 1rem; padding: 1rem;">
-				<Link to="/">Home</Link>
-				<Link to="/posts" search={{}}>Posts</Link>
-				<Link to="/about">About</Link>
-			</nav>
-
-			<routes.Render />
-		</>
-	);
+	return <routes.Render />;
 }
 
-declare module "../../src/router" {
+declare module "../../src/router.tsx" {
 	export interface R {
 		router: typeof routes;
 	}

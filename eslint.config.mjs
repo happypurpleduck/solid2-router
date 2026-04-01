@@ -10,5 +10,19 @@ export default antfu({
 	rules: {
 		"no-console": "off",
 		"antfu/no-top-level-await": "off",
+
+		"curly": [
+			"error",
+			"all",
+		],
+		"style/brace-style": [
+			"error",
+			"stroustrup",
+			{
+				allowSingleLine: false,
+			},
+		],
+
+		"ts/no-empty-object-type": "off",
 	},
 });

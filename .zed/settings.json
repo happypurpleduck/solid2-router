@@ -6,7 +6,7 @@
 		"JavaScript": {
 			"language_servers": [
 				"...",
-				"vtsls",
+				"!vtsls",
 				"tsgo",
 				"!typescript-language-server",
 				"!biome"
@@ -20,7 +20,7 @@
 		"TypeScript": {
 			"language_servers": [
 				"...",
-				"vtsls",
+				"!vtsls",
 				"tsgo",
 				"!typescript-language-server",
 				"!biome"
@@ -55,7 +55,7 @@
 		"TSX": {
 			"language_servers": [
 				"...",
-				"vtsls",
+				"!vtsls",
 				"tsgo",
 				"!typescript-language-server",
 				"!biome"

@@ -5,12 +5,51 @@ import type { Router } from "./router.tsx";
 
 export type Prettify<T> = { [K in keyof T]: T[K] } & {};
 
+export interface AnyRoute {
+	"path": string;
+	"children": AnyRoute[];
+
+	"~types": RouteLikeContext;
+
+	"normalizedPath": string;
+}
+
+export interface RouteLikeContext<
+	TPath extends string = string,
+	TParams extends Record<string, string> | unknown = unknown,
+	TSearch extends {
+		in: any;
+		out: any;
+	} = {
+		in: any;
+		out: any;
+	},
+> {
+	parent: RouteLike | null;
+	children: AnyRoute[];
+
+	path: TPath;
+	params: PathParams<TPath> & TParams;
+
+	search: TSearch;
+}
+
+// export class RouteLike<
+// 	TPath extends string = string,
+// 	TParams extends Record<any, any> = {},
+// 	TSearch extends {
+// 		in: any;
+// 		out: any;
+// 	} = {
+// 		in: never;
+// 		out: never;
+// 	},
+// > {
+// 	declare "~types": RouteLikeContext<TPath, TParams, TSearch>;
+// }
+
 export interface RouteLike {
-	"~types": {
-		parent: RouteLike | null;
-		path: string;
-		children: RouteLike[];
-	};
+	"~types": RouteLikeContext;
 }
 
 export interface RouteSchema {
@@ -18,8 +57,7 @@ export interface RouteSchema {
 	search?: StandardSchemaV1;
 }
 
-export type AnyRouter = Router<AnyRoute[], "">;
-export type AnyRoute = Route<any, string, any, RouteSchema, AnyRoute[]>;
+export type AnyRouter = Router<AnyRoute[], `/${string}`>;
 
 export interface Location {
 	pathname: string;
@@ -28,19 +66,20 @@ export interface Location {
 }
 
 export type PathParams<TPath extends string>
-	= TPath extends `${infer _A}/${infer Rest}`
-		? (_A extends `$${infer Name}` ? { [K in Name]: string } : unknown) & PathParams<Rest>
+	= TPath extends `${infer Path}/${infer Rest}`
+		? (Path extends `$${infer Name}` ? { [K in Name]: string } : unknown) & PathParams<Rest>
 		: TPath extends `$${infer Name}`
 			? { [K in Name]: string }
-			: never;
+			: unknown;
 
 export interface TRouteContext {
 	/** @internal */
-	routes: AnyRoute[] | Accessor<AnyRoute[]>;
-	/** @internal */
-	params: Record<string, string>;
+	routes: Accessor<Route[]>;
 	/** @internal */
 	depth: number;
+
+	params: Accessor<RouteLikeContext["params"]>;
+	search: Accessor<RouteLikeContext["search"]["out"]>;
 }
 
 type NormalizedRoutePath<TPath extends string>
@@ -62,6 +101,8 @@ type NormalizeParentPath<TPath extends string> = TPath extends `/${string}/`
 			? Path extends "" ? "/" : `/${Path}/`
 			: TPath;
 
-export type RoutePath<TPath extends string, TParent extends RouteLike | null> = TParent extends RouteLike
-	? `${NormalizeParentPath<TParent["~types"]["path"]>}${NormalizedRoutePath<TPath>}`
-	: TPath;
+export type RoutePath<TPath extends string, TParent extends RouteLike | null> = string extends TPath
+	? TPath
+	: TParent extends RouteLike
+		? `${NormalizeParentPath<TParent["~types"]["path"]>}${NormalizedRoutePath<TPath>}`
+		: TPath;

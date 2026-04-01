@@ -11,5 +11,6 @@
 		"noEmit": true,
 		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true
-	}
+	},
+	"exclude": ["dist"]
 }
