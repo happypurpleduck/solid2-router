@@ -1,7 +1,7 @@
 import type { Accessor, Component, JSX, Setter } from "solid-js";
 import type { routes } from "../dev/src/app.tsx";
 import type { AnyRoute, AnyRouter, RouteLike, RouteLikeContext, RouteSchema } from "./types.ts";
-import { createEffect, createMemo, createSignal, onSettled, untrack } from "solid-js";
+import { createEffect, createSignal, onSettled } from "solid-js";
 import { RouteOutletContext, RouterContext } from "./context.ts";
 import { navigate } from "./navigate.ts";
 import { Outlet } from "./outlet.tsx";
@@ -71,6 +71,36 @@ export class Router<
 		};
 	}
 
+	#resolve(
+		pathname: string,
+		staticRoutes: Map<string, Route[]>,
+		dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>,
+	): TRouterState["resolved"] {
+		const resolved = {
+			path: "",
+			params: {} as Record<string, string>,
+			routes: [] as Route[],
+		};
+
+		const staticRoute = staticRoutes.get(pathname);
+		if (staticRoute) {
+			resolved.path = pathname;
+			resolved.routes = staticRoute;
+		}
+		else {
+			for (const [path, { regex, routes }] of dynamicRoutes) {
+				const result = regex.exec(pathname);
+				if (result) {
+					resolved.path = path;
+					resolved.params = result.groups ?? {};
+					resolved.routes = routes;
+				}
+			}
+		}
+
+		return resolved;
+	}
+
 	#process(
 		staticRoutes: Map<string, Route[]>,
 		dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>,
@@ -130,11 +160,11 @@ export class Router<
 			);
 		}
 
-		// TODO:
 		this.setState(state => ({
 			...state,
 			staticRoutes,
 			dynamicRoutes,
+			resolved: this.#resolve(state.location.pathname, staticRoutes, dynamicRoutes),
 			dirty: false,
 		}));
 	}
@@ -180,15 +210,16 @@ export class Router<
 
 			onSettled(() => {
 				const handler = (event: NavigateEvent) => {
-					this.setState((s) => {
-						return {
-							...s,
-							location: {
-								original: event.destination.url,
-								...parsePath(event.destination.url),
-							},
-						};
-					});
+					const location = {
+						original: event.destination.url,
+						...parsePath(event.destination.url),
+					};
+
+					this.setState(state => ({
+						...state,
+						location,
+						resolved: this.#resolve(location.pathname, state.staticRoutes, state.dynamicRoutes),
+					}));
 				};
 
 				window.navigation.addEventListener("navigate", handler);
@@ -197,50 +228,6 @@ export class Router<
 					navigation.removeEventListener("navigate", handler);
 				};
 			});
-
-			createEffect(
-				createMemo(() => this.state().location.original),
-				() => {
-					const state = untrack(() => this.state());
-					const resolved = {
-						path: "",
-						params: {} as Record<string, string>,
-						routes: [] as Route[],
-					};
-
-					const staticRoute = state.staticRoutes.get(state.location.pathname);
-					if (staticRoute) {
-						resolved.path = state.location.pathname;
-						resolved.routes = staticRoute;
-					}
-					else {
-						for (const [path, { regex, routes }] of state.dynamicRoutes) {
-							const result = regex.exec(state.location.pathname);
-							if (result) {
-								resolved.path = path;
-								resolved.params = result.groups ?? {};
-								resolved.routes = routes;
-							}
-						}
-					}
-
-					this.setState(s => ({ ...s, resolved }));
-				},
-			);
-
-			createEffect(
-				createMemo(() => this.state().resolved.params),
-				(params) => {
-					const state = untrack(this.state);
-
-					navigate({
-						to: state.resolved.path as Paths,
-						search: state.location.search,
-						// @ts-expect-error :shrug:
-						params,
-					});
-				},
-			);
 
 			return (
 				<RouterContext value={[this.state, this.setState]}>

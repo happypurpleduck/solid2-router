@@ -1,6 +1,8 @@
+import type { Paths } from "./router.tsx";
 import { Dynamic } from "@solidjs/web";
 import { createMemo } from "solid-js";
 import { RouteOutletContext, useRouterContext, useRouterOutletContext } from "./context.ts";
+import { navigate } from "./navigate.ts";
 
 export function Outlet() {
 	const routerContext = useRouterContext();
@@ -14,16 +16,29 @@ export function Outlet() {
 				component={RouteComponent()}
 				route={{
 					params: routerContext[0]().resolved.params,
-					setParams(params) {
-						routerContext[1](s => ({
-							...s,
-							resolved: {
-								...s.resolved,
-								params: typeof params === "function" ? params(s.resolved.params) : params ?? s.resolved.params,
-							},
-						}));
+					setParams(params, opts) {
+						const state = routerContext[0]();
+
+						navigate({
+							to: state.resolved.path as Paths,
+							params: typeof params === "function"
+								? params(state.resolved.params)
+								: params,
+							search: state.location.search,
+							replace: opts?.replace,
+						});
 					},
 					search: routerContext[0]().location.search,
+					setSearch(search, opts) {
+						const state = routerContext[0]();
+
+						navigate({
+							to: state.resolved.path as Paths,
+							params: state.resolved.params as any,
+							search,
+							replace: opts?.replace,
+						});
+					},
 				}}
 			/>
 		</RouteOutletContext>

@@ -1,15 +1,19 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Component } from "solid-js";
+import type { Paths } from "./router.tsx";
 import type { AnyRoute, AnyRouter, PathParams, RouteLike, RouteLikeContext, RoutePath, RouteSchema } from "./types.ts";
 import { DEV } from "solid-js";
 import { Router } from "./router.tsx";
 
 type RouteComponent<T extends RouteLikeContext> = Component<{
 	route: {
-		// TODO: deep
+		// TODO: deep readonly
 		params: Readonly<T["params"] extends infer R extends Record<string, string> ? R : Partial<Record<string, string>>>;
-		setParams: (params: T["params"] | ((prev: T["params"]) => T["params"])) => void;
-		search: T["search"]["out"] extends infer S extends Record<string, string> ? S : Partial<Record<string, string>>;
+		// setParams: (params: T["params"] | ((prev: T["params"]) => T["params"])) => void;
+		setParams: (params: T["params"] | ((prev: T["params"]) => T["params"]), opts?: { replace?: true }) => void;
+		// TODO: deep readonly
+		search: Readonly<T["search"]["out"] extends infer S extends Record<string, any> ? S : Partial<Record<string, string>>>;
+		setSearch: (search: T["search"]["in"] | ((prev: T["search"]["out"]) => T["search"]["in"]), opts?: { replace?: true }) => void;
 	};
 }>;
 
@@ -40,6 +44,7 @@ export class Route<
 	readonly schema?: TSchema;
 	readonly children: TChildren;
 	readonly getParent?: () => TParent;
+	readonly redirect?: string;
 
 	declare "~types": T;
 
@@ -48,16 +53,21 @@ export class Route<
 		component,
 		schema,
 		getParent,
+		redirect,
 	}: {
 		path: TPath;
 		component?: RouteComponent<T>;
 		schema?: TSchema;
 		getParent?: () => TParent;
+
+		// TODO: set type to `Paths`
+		redirect?: string;
 	}) {
 		this.path = path;
 		this.Component = component;
 		this.schema = schema;
 		this.getParent = getParent;
+		this.redirect = redirect;
 
 		// @ts-expect-error TODO: ???
 		this.children = [];

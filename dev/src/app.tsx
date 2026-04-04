@@ -1,4 +1,4 @@
-import { createEffect, createSignal, untrack } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import * as v from "valibot";
 import { Link } from "../../src/link";
 import { Outlet } from "../../src/outlet";
@@ -50,12 +50,7 @@ const aboutRoute = new Route({
 const postsRoute = new Route({
 	getParent: () => rootRoute,
 	path: "posts",
-	schema: {
-		search: v.object({
-			page: v.optional(v.number()),
-			sort: v.optional(v.string()),
-		}),
-	},
+	redirect: "/posts/list",
 	component: function PostsPage(props) {
 		console.info("posts", props.route.params);
 		const [count, _setCount] = createSignal(() => Number.parseInt(props.route.params.postId ?? "") || 0);
@@ -99,13 +94,29 @@ const postsRoute = new Route({
 const postsListRoute = new Route({
 	getParent: () => postsRoute,
 	path: "/list/",
-	// validateSearch: v.object({
-	// 	page: v.optional(v.number(), 1),
-	// 	sort: v.optional(v.string(), "date"),
-	// }),
-	component: function PostsListPage() {
+	schema: {
+		search: v.object({
+			page: v.optional(v.number(), 1),
+			sort: v.optional(v.string(), "date"),
+		}),
+	},
+	component: function PostsListPage(props) {
 		console.info("posts list");
-		return <div>List Page</div>;
+
+		createEffect(() => props.route.search, console.info);
+
+		return (
+			<div>
+				List Page
+				<button
+					onClick={() => {
+						props.route.setSearch({ page: 5 });
+					}}
+				>
+					go
+				</button>
+			</div>
+		);
 	},
 });
 
@@ -114,7 +125,7 @@ const postDetailRoute = new Route({
 	path: "/$postId/",
 	component: function PostDetailPage(props) {
 		console.info("post detail", props.route.params.postId);
-		createEffect(() => [props.route.params.postId], ([postId]) => {
+		createEffect(() => props.route.params.postId, (postId) => {
 			console.info("post detail effect", postId);
 		});
 		return (
