@@ -1,6 +1,4 @@
-import type { Location } from "./types.ts";
-
-export function parsePath(path: string): Location {
+export function parsePath(path: string) {
 	if (URL.canParse(path)) {
 		const url = new URL(path);
 		return {

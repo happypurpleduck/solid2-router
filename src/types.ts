@@ -16,7 +16,7 @@ export interface AnyRoute {
 
 export interface RouteLikeContext<
 	TPath extends string = string,
-	TParams extends Record<string, string> | unknown = unknown,
+	TParent extends RouteLike | AnyRouter | null = any,
 	TSearch extends {
 		in: any;
 		out: any;
@@ -25,28 +25,14 @@ export interface RouteLikeContext<
 		out: any;
 	},
 > {
-	parent: RouteLike | null;
+	parent: TParent;
 	children: AnyRoute[];
 
 	path: TPath;
-	params: PathParams<TPath> & TParams;
+	params: PathParams<TPath> & (TParent extends { "~types": { params: infer T } } ? T : unknown);
 
 	search: TSearch;
 }
-
-// export class RouteLike<
-// 	TPath extends string = string,
-// 	TParams extends Record<any, any> = {},
-// 	TSearch extends {
-// 		in: any;
-// 		out: any;
-// 	} = {
-// 		in: never;
-// 		out: never;
-// 	},
-// > {
-// 	declare "~types": RouteLikeContext<TPath, TParams, TSearch>;
-// }
 
 export interface RouteLike {
 	"~types": RouteLikeContext;
@@ -61,6 +47,7 @@ export type AnyRouter = Router<AnyRoute[], `/${string}`>;
 
 export interface Location {
 	pathname: string;
+
 	search: Record<string, string>;
 	hash: string;
 }
@@ -71,16 +58,6 @@ export type PathParams<TPath extends string>
 		: TPath extends `$${infer Name}`
 			? { [K in Name]: string }
 			: unknown;
-
-export interface TRouteContext {
-	/** @internal */
-	routes: Accessor<Route[]>;
-	/** @internal */
-	depth: number;
-
-	params: Accessor<RouteLikeContext["params"]>;
-	search: Accessor<RouteLikeContext["search"]["out"]>;
-}
 
 type NormalizedRoutePath<TPath extends string>
 	= TPath extends "/" | ""

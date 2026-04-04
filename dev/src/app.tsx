@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createEffect, createSignal, untrack } from "solid-js";
 import * as v from "valibot";
 import { Link } from "../../src/link";
 import { Outlet } from "../../src/outlet";
@@ -56,14 +56,18 @@ const postsRoute = new Route({
 			sort: v.optional(v.string()),
 		}),
 	},
-	component: function PostsPage() {
-		console.info("posts");
-		const [count, setCount] = createSignal(0);
+	component: function PostsPage(props) {
+		console.info("posts", props.route.params);
+		const [count, _setCount] = createSignal(() => Number.parseInt(props.route.params.postId ?? "") || 0);
 
 		return (
 			<div>
 				Posts Page
-				<button onClick={() => setCount(count() + 1)}>
+
+				<button onClick={() => {
+					props.route.setParams({ postId: (count() + 1).toString() });
+				}}
+				>
 					{count()}
 				</button>
 				<div style="display: flex; gap: 1rem; padding: 1rem;">
@@ -109,6 +113,10 @@ const postDetailRoute = new Route({
 	getParent: () => postsRoute,
 	path: "/$postId/",
 	component: function PostDetailPage(props) {
+		console.info("post detail", props.route.params.postId);
+		createEffect(() => [props.route.params.postId], ([postId]) => {
+			console.info("post detail effect", postId);
+		});
 		return (
 			<div>
 				Post Detail Page

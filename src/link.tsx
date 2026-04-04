@@ -6,23 +6,25 @@ import { resolveNavigationPath } from "./navigate.ts";
 export function Link<
 	const P extends Paths,
 	Route extends Extract<FlatRoutes, { "~types": { path: P } }>,
->(props: Omit<ComponentProps<"a">, "href" | "onClick">
-	& {
-		children?: JSX.Element;
-		search?: Route["~types"] extends { search: { in: infer S } } ? S : never;
-		replace?: true;
-	}
-	& (
-	Route["~types"]["params"] extends Record<string, string>
-		? {
-				to: P;
-				params: Route["~types"]["params"];
-			}
-		: {
-				to: P;
-				params?: never;
-			}
-		)) {
+>(
+	props: Omit<ComponentProps<"a">, "href" | "onClick">
+		& {
+			children?: JSX.Element;
+			search?: Route["~types"] extends { search: { in: infer S } } ? S : never;
+			replace?: true;
+		}
+		& (
+		Route["~types"]["params"] extends Record<string, string>
+			? {
+					to: P;
+					params: Route["~types"]["params"];
+				}
+			: {
+					to: P;
+					params?: never;
+				}
+	),
+) {
 	const path = createMemo(() => resolveNavigationPath(props.to, props.params, props.search));
 
 	return (

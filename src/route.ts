@@ -1,19 +1,21 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Component } from "solid-js";
-import type { AnyRoute, PathParams, RouteLike, RouteLikeContext, RoutePath, RouteSchema } from "./types.ts";
+import type { AnyRoute, AnyRouter, PathParams, RouteLike, RouteLikeContext, RoutePath, RouteSchema } from "./types.ts";
 import { DEV } from "solid-js";
 import { Router } from "./router.tsx";
 
 type RouteComponent<T extends RouteLikeContext> = Component<{
 	route: {
-		params: T["params"];
-		search: T["search"]["out"];
+		// TODO: deep
+		params: Readonly<T["params"] extends infer R extends Record<string, string> ? R : Partial<Record<string, string>>>;
+		setParams: (params: T["params"] | ((prev: T["params"]) => T["params"])) => void;
+		search: T["search"]["out"] extends infer S extends Record<string, string> ? S : Partial<Record<string, string>>;
 	};
 }>;
 
 export class Route<
 	const TPath extends string = string,
-	const TParent extends RouteLike | null = any,
+	const TParent extends RouteLike | AnyRouter | null = any,
 	const TSchema extends RouteSchema = RouteSchema,
 	const TChildren extends AnyRoute[] = [],
 	const T extends RouteLikeContext = {
@@ -21,8 +23,8 @@ export class Route<
 		path: RoutePath<TPath, TParent>;
 		children: TChildren;
 
-		// TODO should not need to parse parent's again
-		params: PathParams<TPath>;
+		// TODO: should not need to parse parent's again
+		params: PathParams<TPath> & (TParent extends infer Parent extends RouteLike ? Parent["~types"]["params"] : unknown);
 		search: TSchema extends { search: infer TSearch extends StandardSchemaV1 }
 			? {
 					in: StandardSchemaV1.InferInput<TSearch>;

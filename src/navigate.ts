@@ -28,18 +28,17 @@ export function navigate<
 	opts: {
 		to: Path;
 		search?: Route["~types"] extends { search: { in: infer S } } ? S : never;
-		replace?: true;
-	} & (
-			Route["~types"]["params"] extends Record<string, string>
-				? {
-						to: Path;
-						params: Route["~types"]["params"];
-					}
-				: {
-						to: Path;
-						params?: never;
-					}
 
+		replace?: true;
+	}
+	& (
+		Route["~types"]["params"] extends Record<string, string>
+			? {
+					params: Route["~types"]["params"];
+				}
+			: {
+					params?: never;
+				}
 	),
 ) {
 	const path = resolveNavigationPath(
@@ -47,6 +46,10 @@ export function navigate<
 		opts.params ?? {},
 		opts.search,
 	);
+
+	if (path === window.location.pathname) {
+		return;
+	}
 
 	// TODO: use window.navigation?
 	if (opts.replace) {

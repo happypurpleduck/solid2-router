@@ -1,27 +1,31 @@
 import type { Accessor, Component, JSX, Setter } from "solid-js";
 import type { routes } from "../dev/src/app.tsx";
-import type { AnyRoute, AnyRouter, PathParams, RouteLike, RouteLikeContext, RouteSchema } from "./types.ts";
-import { createEffect, createMemo, createSignal, DEV, onSettled } from "solid-js";
-import { RouteContext } from "./context.ts";
+import type { AnyRoute, AnyRouter, RouteLike, RouteLikeContext, RouteSchema } from "./types.ts";
+import { createEffect, createMemo, createSignal, onSettled, untrack } from "solid-js";
+import { RouteOutletContext, RouterContext } from "./context.ts";
+import { navigate } from "./navigate.ts";
 import { Outlet } from "./outlet.tsx";
 import { parsePath } from "./path.ts";
 import { Route } from "./route.ts";
 
-function join(parentPath: string, path: string) {
-	if (path.startsWith("/")) {
-		path = path.substring(1);
-	}
-	if (path.endsWith("/")) {
-		path = path.substring(0, path.length - 1);
-	}
-	if (!parentPath.endsWith("/")) {
-		parentPath += "/";
-	}
+export interface TRouterState {
+	dirty: boolean;
+	staticRoutes: Map<string, Route[]>;
+	dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>;
 
-	return parentPath + path;
+	location: {
+		original: string;
+		pathname: string;
+		search: Record<string, string>;
+		hash: string;
+	};
+
+	resolved: {
+		path: string;
+		routes: Route[];
+		params: Record<string, string>;
+	};
 }
-
-const [location, setLocation] = createSignal(parsePath(window.location.toString()));
 
 export class Router<
 	const T extends AnyRoute[] = [],
@@ -32,24 +36,47 @@ export class Router<
 	readonly children: T = [];
 	readonly notFoundComponent: Component;
 
-	#static = new Map<string, Route[]>();
-	#dynamic = new Map<string, { regex: RegExp; routes: Route[] }>();
+	declare "~types": RouteLikeContext<P, null, { in: never; out: never }>;
 
-	declare "~types": RouteLikeContext<P, PathParams<P>, { in: never; out: never }>;
+	state: Accessor<TRouterState>;
+	setState: Setter<TRouterState>;
 
-	#dirty: Accessor<boolean>;
-	setDirty: Setter<boolean>;
+	setDirty: (value: boolean) => void;
 
 	constructor({ path, notFoundComponent }: { path: P; notFoundComponent: Component }) {
 		this.path = path;
 		this.notFoundComponent = notFoundComponent;
 
-		const [dirty, setDirty] = createSignal(false);
-		this.#dirty = dirty;
-		this.setDirty = setDirty;
+		const [state, setState] = createSignal<TRouterState>({
+			dirty: false,
+			staticRoutes: new Map(),
+			dynamicRoutes: new Map(),
+
+			location: {
+				original: window.location.pathname,
+				...parsePath(window.location.pathname),
+			},
+
+			resolved: {
+				path: "",
+				routes: [],
+				params: {},
+			},
+		});
+		this.state = state;
+		this.setState = setState;
+
+		this.setDirty = (value: boolean) => {
+			setState(prev => ({ ...prev, dirty: value }));
+		};
 	}
 
-	#process(chain: Route[], parentPath: string) {
+	#process(
+		staticRoutes: Map<string, Route[]>,
+		dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>,
+		chain: Route[],
+		parentPath: string,
+	) {
 		const self = chain.at(-1);
 		if (!self) {
 			return;
@@ -73,43 +100,66 @@ export class Router<
 				}
 
 				const regex = new RegExp(regexpstr.join("/"), "i");
-				this.#dynamic.set(path, { regex, routes: chain });
+				dynamicRoutes.set(path, { regex, routes: chain });
 			}
 			else {
-				this.#static.set(path, chain);
+				staticRoutes.set(path, chain);
 			}
 		}
 
 		for (const child of self.children) {
-			this.#process(chain.concat(child), path);
+			this.#process(
+				staticRoutes,
+				dynamicRoutes,
+				chain.concat(child),
+				path,
+			);
 		}
 	};
 
 	#compute(): void {
-		this.#static.clear();
-		this.#dynamic.clear();
+		const staticRoutes = new Map<string, Route[]>();
+		const dynamicRoutes = new Map<string, { regex: RegExp; routes: Route[] }>();
 
 		for (const child of this.children) {
-			this.#process([child as Route], this.path);
+			this.#process(
+				staticRoutes,
+				dynamicRoutes,
+				[child as Route],
+				this.path,
+			);
 		}
+
+		// TODO:
+		this.setState(state => ({
+			...state,
+			staticRoutes,
+			dynamicRoutes,
+			dirty: false,
+		}));
 	}
 
 	addChildren<const U extends AnyRoute[]>(children: U): Router<[...T, ...U]> {
 		// @ts-expect-error override
 		this.children = this.children.concat(children);
 
-		if (DEV) {
-			let hasParamRoute = false;
-			for (const child of this.children) {
-				if (child.path.startsWith("$")) {
-					if (hasParamRoute) {
-						// TODO: add more context to the error
-						throw new Error("Multiple parameter routes are not allowed on the same level");
-					}
-					hasParamRoute = true;
-				}
-			}
-		}
+		// TODO: this need to ensure that it's on the same level while checking and is the last section.
+		// such that:
+		// - /a/$a
+		// - /a/$b/a
+		// is allowed.
+		// if (DEV) {
+		// 	let hasParamRoute = false;
+		// 	for (const child of this.children) {
+		// 		if (child.path.startsWith("$")) {
+		// 			if (hasParamRoute) {
+		// 				// TODO: add more context to the error
+		// 				throw new Error("Multiple parameter routes are not allowed on the same level");
+		// 			}
+		// 			hasParamRoute = true;
+		// 		}
+		// 	}
+		// }
 
 		this.#compute();
 
@@ -120,81 +170,84 @@ export class Router<
 	get Render(): () => JSX.Element {
 		return () => {
 			createEffect(
-				this.#dirty,
+				() => this.state().dirty,
 				(dirty) => {
 					if (dirty) {
 						this.#compute();
-						// TODO: this is probably bad.
-						this.setDirty(false);
 					}
 				},
 			);
 
 			onSettled(() => {
 				const handler = (event: NavigateEvent) => {
-					setLocation(parsePath(event.destination.url));
+					this.setState((s) => {
+						return {
+							...s,
+							location: {
+								original: event.destination.url,
+								...parsePath(event.destination.url),
+							},
+						};
+					});
 				};
 
-				navigation.addEventListener("navigate", handler);
+				window.navigation.addEventListener("navigate", handler);
 
 				return () => {
 					navigation.removeEventListener("navigate", handler);
 				};
 			});
 
-			const resolve = createMemo((): {
-				params: Record<string, string>;
-				routes: Route[];
-				search: Record<string, string>;
-			} => {
-				const l = location();
-				const search = l.search;
-				let params: Record<string, string> = {};
-
-				const staticRoute = this.#static.get(l.pathname);
-				if (staticRoute) {
-					return {
-						routes: staticRoute as Route[],
-						params,
-						search,
+			createEffect(
+				createMemo(() => this.state().location.original),
+				() => {
+					const state = untrack(() => this.state());
+					const resolved = {
+						path: "",
+						params: {} as Record<string, string>,
+						routes: [] as Route[],
 					};
-				}
 
-				for (const { regex, routes } of this.#dynamic.values()) {
-					const result = regex.exec(l.pathname);
-					if (result) {
-						if (result.groups) {
-							params = result.groups;
-						}
-
-						return {
-							routes,
-							params,
-							search,
-						};
+					const staticRoute = state.staticRoutes.get(state.location.pathname);
+					if (staticRoute) {
+						resolved.path = state.location.pathname;
+						resolved.routes = staticRoute;
 					}
-				}
+					else {
+						for (const [path, { regex, routes }] of state.dynamicRoutes) {
+							const result = regex.exec(state.location.pathname);
+							if (result) {
+								resolved.path = path;
+								resolved.params = result.groups ?? {};
+								resolved.routes = routes;
+							}
+						}
+					}
 
-				// TODO: 404
+					this.setState(s => ({ ...s, resolved }));
+				},
+			);
 
-				return {
-					routes: [],
-					params,
-					search,
-				};
-			});
+			createEffect(
+				createMemo(() => this.state().resolved.params),
+				(params) => {
+					const state = untrack(this.state);
+
+					navigate({
+						to: state.resolved.path as Paths,
+						search: state.location.search,
+						// @ts-expect-error :shrug:
+						params,
+					});
+				},
+			);
 
 			return (
-				<RouteContext
-					value={{
-						routes: () => resolve().routes,
-						search: () => resolve().search,
-						params: () => resolve().params,
-						depth: 0,
-					}}
-				>
-					<Outlet />
-				</RouteContext>
+				<RouterContext value={[this.state, this.setState]}>
+					<RouteOutletContext value={{ depth: 0 }}>
+						<Outlet />
+					</RouteOutletContext>
+				</RouterContext>
 			);
 		};
 	}
@@ -219,3 +272,17 @@ type TheRouter = R extends { router: infer R extends AnyRouter }
 
 export type FlatRoutes = FlattenRoutes<TheRouter>;
 export type Paths = RouterPaths<FlatRoutes>;
+
+function join(parentPath: string, path: string) {
+	if (path.startsWith("/")) {
+		path = path.substring(1);
+	}
+	if (path.endsWith("/")) {
+		path = path.substring(0, path.length - 1);
+	}
+	if (!parentPath.endsWith("/")) {
+		parentPath += "/";
+	}
+
+	return parentPath + path;
+}

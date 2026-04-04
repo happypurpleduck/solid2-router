@@ -1,31 +1,31 @@
 import { Dynamic } from "@solidjs/web";
 import { createMemo } from "solid-js";
-import { RouteContext, useRouterContext } from "./context.ts";
+import { RouteOutletContext, useRouterContext, useRouterOutletContext } from "./context.ts";
 
 export function Outlet() {
-	const context = useRouterContext();
+	const routerContext = useRouterContext();
+	const outletContext = useRouterOutletContext();
 
-	const route = createMemo(() => context.routes()[context.depth]);
+	const RouteComponent = createMemo(() => routerContext[0]().resolved.routes[outletContext.depth]?.Component);
 
 	return (
-		<RouteContext value={{
-			routes: context.routes,
-			params: context.params,
-			search: context.search,
-			depth: context.depth + 1,
-		}}
-		>
+		<RouteOutletContext value={{ depth: outletContext.depth + 1 }}>
 			<Dynamic
-				component={route()?.Component}
+				component={RouteComponent()}
 				route={{
-					params: context.params(),
-					search: context.search(),
+					params: routerContext[0]().resolved.params,
+					setParams(params) {
+						routerContext[1](s => ({
+							...s,
+							resolved: {
+								...s.resolved,
+								params: typeof params === "function" ? params(s.resolved.params) : params ?? s.resolved.params,
+							},
+						}));
+					},
+					search: routerContext[0]().location.search,
 				}}
 			/>
-		</RouteContext>
+		</RouteOutletContext>
 	);
 }
-
-// <Show when={route()}>
-// 				{route => <route.Component route={{ params: context.params(), search: context.search() }} />}
-// 			</Show>
