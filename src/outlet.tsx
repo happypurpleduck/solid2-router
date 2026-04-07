@@ -1,40 +1,63 @@
 import type { Paths } from "./router.tsx";
 import { Dynamic } from "@solidjs/web";
-import { createMemo } from "solid-js";
+import { createEffect, createMemo } from "solid-js";
 import { RouteOutletContext, useRouterContext, useRouterOutletContext } from "./context.ts";
 import { navigate } from "./navigate.ts";
 
 export function Outlet() {
-	const routerContext = useRouterContext();
+	const [routerContext] = useRouterContext();
 	const outletContext = useRouterOutletContext();
 
-	const RouteComponent = createMemo(() => routerContext[0]().resolved.routes[outletContext.depth]?.Component);
+	const state = createMemo(() => routerContext());
+	const currentRoute = createMemo(() => state().resolved.routes[outletContext.depth]);
+	const RouteComponent = createMemo(() => currentRoute()?.Component);
+
+	createEffect(
+		() => {
+			const route = currentRoute();
+			const routes = state().resolved.routes;
+			const isLeaf = outletContext.depth === routes.length - 1;
+			if (route?.redirect && isLeaf) {
+				return { redirect: route.redirect, resolvedPath: state().resolved.path };
+			}
+			return null;
+		},
+		(redirectInfo) => {
+			if (!redirectInfo) {
+				return;
+			}
+
+			navigate({
+				to: redirectInfo.redirect as Paths,
+				replace: true,
+			});
+		},
+	);
 
 	return (
 		<RouteOutletContext value={{ depth: outletContext.depth + 1 }}>
 			<Dynamic
 				component={RouteComponent()}
 				route={{
-					params: routerContext[0]().resolved.params,
+					params: state().resolved.params,
 					setParams(params, opts) {
-						const state = routerContext[0]();
+						const currentState = state();
 
 						navigate({
-							to: state.resolved.path as Paths,
+							to: currentState.resolved.path,
 							params: typeof params === "function"
-								? params(state.resolved.params)
+								? params(currentState.resolved.params)
 								: params,
-							search: state.location.search,
+							search: currentState.location.search,
 							replace: opts?.replace,
 						});
 					},
-					search: routerContext[0]().location.search,
+					search: state().location.search,
 					setSearch(search, opts) {
-						const state = routerContext[0]();
-
+						const currentState = state();
 						navigate({
-							to: state.resolved.path as Paths,
-							params: state.resolved.params as any,
+							to: currentState.resolved.path,
+							params: currentState.resolved.params as any,
 							search,
 							replace: opts?.replace,
 						});

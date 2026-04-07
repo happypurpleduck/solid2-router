@@ -3,7 +3,6 @@ import type { routes } from "../dev/src/app.tsx";
 import type { AnyRoute, AnyRouter, RouteLike, RouteLikeContext, RouteSchema } from "./types.ts";
 import { createEffect, createSignal, onSettled } from "solid-js";
 import { RouteOutletContext, RouterContext } from "./context.ts";
-import { navigate } from "./navigate.ts";
 import { Outlet } from "./outlet.tsx";
 import { parsePath } from "./path.ts";
 import { Route } from "./route.ts";
@@ -21,7 +20,7 @@ export interface TRouterState {
 	};
 
 	resolved: {
-		path: string;
+		path: Paths;
 		routes: Route[];
 		params: Record<string, string>;
 	};
@@ -47,7 +46,9 @@ export class Router<
 		this.path = path;
 		this.notFoundComponent = notFoundComponent;
 
+		// TODO: use store?
 		const [state, setState] = createSignal<TRouterState>({
+			// TODO: probably isolate into a different signal
 			dirty: false,
 			staticRoutes: new Map(),
 			dynamicRoutes: new Map(),
@@ -58,7 +59,9 @@ export class Router<
 			},
 
 			resolved: {
-				path: "",
+				// TODO: get as input for base route?
+				// OR: use current path.
+				path: "/" as Paths,
 				routes: [],
 				params: {},
 			},
@@ -76,22 +79,22 @@ export class Router<
 		staticRoutes: Map<string, Route[]>,
 		dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>,
 	): TRouterState["resolved"] {
-		const resolved = {
-			path: "",
+		const resolved: TRouterState["resolved"] = {
+			path: "/" as Paths,
 			params: {} as Record<string, string>,
 			routes: [] as Route[],
 		};
 
 		const staticRoute = staticRoutes.get(pathname);
 		if (staticRoute) {
-			resolved.path = pathname;
+			resolved.path = pathname as Paths;
 			resolved.routes = staticRoute;
 		}
 		else {
 			for (const [path, { regex, routes }] of dynamicRoutes) {
 				const result = regex.exec(pathname);
 				if (result) {
-					resolved.path = path;
+					resolved.path = path as Paths;
 					resolved.params = result.groups ?? {};
 					resolved.routes = routes;
 				}
