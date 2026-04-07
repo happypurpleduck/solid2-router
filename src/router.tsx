@@ -59,9 +59,7 @@ export class Router<
 			},
 
 			resolved: {
-				// TODO: get as input for base route?
-				// OR: use current path.
-				path: "/" as Paths,
+				path: this.path as Paths,
 				routes: [],
 				params: {},
 			},
@@ -79,29 +77,36 @@ export class Router<
 		staticRoutes: Map<string, Route[]>,
 		dynamicRoutes: Map<string, { regex: RegExp; routes: Route[] }>,
 	): TRouterState["resolved"] {
-		const resolved: TRouterState["resolved"] = {
-			path: "/" as Paths,
-			params: {} as Record<string, string>,
-			routes: [] as Route[],
-		};
+		let resolved: TRouterState["resolved"] | null = null;
 
 		const staticRoute = staticRoutes.get(pathname);
 		if (staticRoute) {
-			resolved.path = pathname as Paths;
-			resolved.routes = staticRoute;
+			resolved = {
+				path: pathname as Paths,
+				routes: staticRoute,
+				params: {} as Record<string, string>,
+			};
 		}
 		else {
 			for (const [path, { regex, routes }] of dynamicRoutes) {
 				const result = regex.exec(pathname);
 				if (result) {
-					resolved.path = path as Paths;
-					resolved.params = result.groups ?? {};
-					resolved.routes = routes;
+					resolved = {
+						path: path as Paths,
+						params: result.groups ?? {},
+						routes,
+					};
+					break;
 				}
 			}
 		}
 
-		return resolved;
+		// TODO: handle Not Found
+		return resolved ?? {
+			path: "/" as Paths,
+			routes: [],
+			params: {} as Record<string, string>,
+		};
 	}
 
 	#process(
